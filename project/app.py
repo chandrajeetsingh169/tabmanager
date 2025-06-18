@@ -197,3 +197,41 @@ if page == "Profile":
         st.session_state.user = new_username.lower().strip()
         st.success("Profile updated!")
         st.rerun()
+import streamlit as st
+import pandas as pd
+import os
+
+st.title("🔗 Live GitHub User Data Viewer & Local Sync")
+
+# GitHub raw file URLs
+users_url = "https://raw.githubusercontent.com/chandrajeetsingh169/tabmanager/main/project/users.csv"
+links_url = "https://raw.githubusercontent.com/chandrajeetsingh169/tabmanager/main/project/user_links.csv"
+
+# Create a folder for local storage
+os.makedirs("local_data", exist_ok=True)
+
+def load_and_sync(url, local_filename):
+    try:
+        df = pd.read_csv(url)
+        df.to_csv(f"local_data/{local_filename}", index=False)
+        return df, None
+    except Exception as e:
+        return None, str(e)
+
+# Load users.csv
+st.subheader("👤 Users Data")
+users_df, users_error = load_and_sync(users_url, "users.csv")
+if users_df is not None:
+    st.success("users.csv loaded from GitHub and saved locally.")
+    st.dataframe(users_df)
+else:
+    st.error(f"Failed to load users.csv: {users_error}")
+
+# Load user_links.csv
+st.subheader("🔗 User Links")
+links_df, links_error = load_and_sync(links_url, "user_links.csv")
+if links_df is not None:
+    st.success("user_links.csv loaded from GitHub and saved locally.")
+    st.dataframe(links_df)
+else:
+    st.error(f"Failed to load user_links.csv: {links_error}")

@@ -62,6 +62,7 @@ def save_to_github(user, file_name, content_bytes, target_path="saving"):
     else:
         return False, response.json()
 
+
 def main(page: ft.Page):
     page.title = "Flet File Saver"
     page.scroll = "auto"
@@ -139,6 +140,7 @@ def main(page: ft.Page):
     def app_ui(user):
         page.clean()
 
+        # State for the selected file
         selected_file = {"name": None, "path": None, "bytes": None}
 
         def file_picker_result(e: ft.FilePickerResultEvent):
@@ -146,10 +148,19 @@ def main(page: ft.Page):
                 file = e.files[0]
                 selected_file["name"] = file.name
                 selected_file["path"] = file.path
-                with open(file.path, "rb") as f:
-                    selected_file["bytes"] = f.read()
-                message.value = f"Selected file: {file.name}"
-                page.update()
+                try:
+                    with open(file.path, "rb") as f:
+                        selected_file["bytes"] = f.read()
+                    message.value = f"Selected file: {file.name}"
+                except Exception as ex:
+                    selected_file["bytes"] = None
+                    message.value = f"Error reading file: {ex}"
+            else:
+                selected_file["name"] = None
+                selected_file["path"] = None
+                selected_file["bytes"] = None
+                message.value = "No file selected!"
+            page.update()
 
         def upload_local(e):
             if not selected_file["bytes"]:
@@ -164,7 +175,7 @@ def main(page: ft.Page):
             with open(local_path, "wb") as f:
                 f.write(selected_file["bytes"])
             message.value = f"✅ File saved locally: {local_name}"
-            app_ui(user)
+            app_ui(user)  # Refresh UI
 
         def upload_github(e):
             if not selected_file["bytes"]:
@@ -176,7 +187,7 @@ def main(page: ft.Page):
                 message.value = f"✅ Uploaded to GitHub: {result}"
             else:
                 message.value = f"❌ GitHub error: {result}"
-            app_ui(user)
+            app_ui(user)  # Refresh UI
 
         def list_github_files():
             url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{github_path.value}/{user}/uploads"
@@ -223,8 +234,10 @@ def main(page: ft.Page):
                 message.value = f"Error deleting: {ex}"
             page.update()
 
+        # Setup FilePicker and add to overlay once
         upload_picker = ft.FilePicker(on_result=file_picker_result)
-        page.overlay.append(upload_picker)
+        if upload_picker not in page.overlay:
+            page.overlay.append(upload_picker)
 
         page.add(
             ft.Row([
@@ -239,7 +252,6 @@ def main(page: ft.Page):
             ]),
             message,
             ft.Divider(),
-
             ft.Text("📁 Local Files", size=20, weight="bold")
         )
 

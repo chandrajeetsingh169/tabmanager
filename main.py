@@ -62,7 +62,6 @@ def save_to_github(user, file_name, content_bytes, target_path="saving"):
     else:
         return False, response.json()
 
-
 def main(page: ft.Page):
     page.title = "Flet File Saver"
     page.scroll = "auto"
@@ -140,29 +139,43 @@ def main(page: ft.Page):
     def app_ui(user):
         page.clean()
 
-        def upload_file(e: ft.FilePickerResultEvent):
-            if not e.files:
-                return
-            file = e.files[0]
-            file_name = file.name
-            file_bytes = open(file.path, "rb").read()
+        selected_file = {"name": None, "path": None, "bytes": None}
 
-            # Save locally
+        def file_picker_result(e: ft.FilePickerResultEvent):
+            if e.files:
+                file = e.files[0]
+                selected_file["name"] = file.name
+                selected_file["path"] = file.path
+                with open(file.path, "rb") as f:
+                    selected_file["bytes"] = f.read()
+                message.value = f"Selected file: {file.name}"
+                page.update()
+
+        def upload_local(e):
+            if not selected_file["bytes"]:
+                message.value = "No file selected!"
+                page.update()
+                return
             user_dir = os.path.join(LOCAL_DIR, user)
             os.makedirs(user_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            local_name = f"{timestamp}_{file_name}"
+            local_name = f"{timestamp}_{selected_file['name']}"
             local_path = os.path.join(user_dir, local_name)
             with open(local_path, "wb") as f:
-                f.write(file_bytes)
+                f.write(selected_file["bytes"])
             message.value = f"✅ File saved locally: {local_name}"
+            app_ui(user)
 
-            # Save to GitHub
-            success, result = save_to_github(user, file_name, file_bytes, github_path.value)
+        def upload_github(e):
+            if not selected_file["bytes"]:
+                message.value = "No file selected!"
+                page.update()
+                return
+            success, result = save_to_github(user, selected_file["name"], selected_file["bytes"], github_path.value)
             if success:
-                message.value += f"\n✅ Uploaded to GitHub: {result}"
+                message.value = f"✅ Uploaded to GitHub: {result}"
             else:
-                message.value += f"\n❌ GitHub error: {result}"
+                message.value = f"❌ GitHub error: {result}"
             app_ui(user)
 
         def list_github_files():
@@ -210,8 +223,8 @@ def main(page: ft.Page):
                 message.value = f"Error deleting: {ex}"
             page.update()
 
-        upload_btn = ft.FilePicker(on_result=upload_file)
-        page.overlay.append(upload_btn)
+        upload_picker = ft.FilePicker(on_result=file_picker_result)
+        page.overlay.append(upload_picker)
 
         page.add(
             ft.Row([
@@ -219,7 +232,11 @@ def main(page: ft.Page):
                 ft.ElevatedButton("Logout", on_click=lambda e: logout())
             ]),
             github_path,
-            ft.ElevatedButton("📤 Upload File", on_click=lambda _: upload_btn.pick_files()),
+            ft.Row([
+                ft.ElevatedButton("📂 Select File", on_click=lambda _: upload_picker.pick_files()),
+                ft.ElevatedButton("⬆️ Upload to Local", on_click=upload_local),
+                ft.ElevatedButton("☁️ Upload to GitHub", on_click=upload_github)
+            ]),
             message,
             ft.Divider(),
 
@@ -259,6 +276,4 @@ def main(page: ft.Page):
 
     login_register_ui()
 
-
 ft.app(target=main)
- 
